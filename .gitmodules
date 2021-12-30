@@ -4,3 +4,6 @@
 [submodule "lib/dss.git"]
 	path = lib/dss.git
 	url = https://github.com/makerdao/dss.git
+[submodule "lib/dss-interfaces.git"]
+	path = lib/dss-interfaces.git
+	url = https://github.com/makerdao/dss-interfaces.git
