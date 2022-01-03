@@ -73,15 +73,26 @@ contract Gate1 is DSMath {
         _;
     }
 
+    // --- Events ---
+    event IntegrationStatus(address indexed integration_, bool status_); // log status of integration
+    event NewApprovedTotal(uint256 amount_); // log when approved total changes
+    event Draw(address indexed dst_, uint256 amount_, bool accessSuckStatus); // log upon draw
+    event NewWithdrawAfter(uint256 timestamp_); // logs new withdraw expiry timestamp
+    event Withdraw(uint256 amount_); // logs amount withdrawn from backup balance
+
     // --- Auth ---
     function relyIntegration(address integration_) external onlyGov { 
         require(integrations[integration_] = false, "integration/approved");
         integrations[integration_] = true; // permit integration access
+
+        emit IntegrationStatus(integration_, true);
     }
 
     function denyIntegration(address integration_) external onlyGov { 
         require(integrations[integration_] = true, "integration/not-approved");
         integrations[integration_] = false; // deny integration access
+
+        emit IntegrationStatus(integration_, false);
     }
 
     // --- UTILS ---
@@ -110,6 +121,8 @@ contract Gate1 is DSMath {
     // allow governance to update draw limit
     function updateApprovedTotal(uint256 newTotal_) public onlyGov {
         approvedTotal = newTotal_; // update approved total amount
+
+        emit NewApprovedTotal(newTotal_);
     }
 
     // internal function that performs a draw limit check and then calls vat.suck
@@ -150,13 +163,14 @@ contract Gate1 is DSMath {
     // draw will fail even if the combined balance from draw limit and backup balance adds up to the amount requested
     // this implementation can only draw dai from a single source between vat.suck and backup dai balance in a single draw call
     function _draw(address dst_, uint256 amount_) internal {
-        accessSuck(amount_); // try drawing amount from vat.suck
-        // return value from accessSuck ignored in this gate design
-        
+        bool suckStatus = accessSuck(amount_); // try drawing amount from vat.suck
+
         // amount can still come from backup balance after accessSuck fails
         
         // transfer amount to the input destination address
         transferDai(dst_, amount_);
+
+        emit Draw(dst_, amount_, suckStatus); // suckStatus logs whether suck(true) or backup balance(false) was used
     }
 
     // draw function for integration to draw dai from gate
@@ -192,15 +206,19 @@ contract Gate1 is DSMath {
     function withdrawDai(uint256 amount_) external onlyGov {
         require(withdrawalConditionSatisfied(amount_), "withdraw-condition-not-satisfied");
         transferDai(gov, amount_); // withdraw dai to governance address
+
+        emit Withdraw(amount_);
     }
 
     /// Update withdrawAfter timestamp
     /// @dev restricted to be executed only by current governance
     /// @param newWithdrawAfter New timestamp
     /// @notice can only set withdrawAfter to a higher timestamp
-    function updateWithdrawAfter(address newWithdrawAfter) public onlyGov {
+    function updateWithdrawAfter(uint256 newWithdrawAfter) public onlyGov {
         require(newWithdrawAfter > withdrawAfter, "withdrawAfter/value-lower");
         withdrawAfter = newWithdrawAfter;
+
+        emit NewWithdrawAfter(newWithdrawAfter);
     }
 
     // --- Vat Forwarders ---
