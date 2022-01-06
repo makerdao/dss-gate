@@ -39,21 +39,21 @@ import "./common/math.sol";
 //  * vat, gov, and vow addresses cannot be updated after deployment
 
 contract Gate1 is DSMath {
-    address gov; // maker protocol governance
-    VatAbstract vat; // maker protocol vat
-    address vow; // maker protocol vow
+    address public gov; // maker protocol governance
+    address public vat; // maker protocol vat
+    address public vow; // maker protocol vow
 
     mapping (address => bool) public integrations; // integrations access status
 
     // draw limit- total amount that can be drawn from vat.suck
-    uint256 approvedTotal; // [rad] 
+    uint256 public approvedTotal; // [rad] 
 
     // withdraw condition- timestamp after which backup dai balance withdrawal is allowed
     uint256 public withdrawAfter; // [timestamp]
 
     constructor(address gov_, address vat_, address vow_) {
         gov = gov_; // set governance address 
-        vat = VatAbstract(vat_); // set vat address
+        vat = vat_; // set vat address
         vow = vow_; // set vow address
 
         withdrawAfter = block.timestamp; // set withdrawAfter to now
@@ -82,14 +82,14 @@ contract Gate1 is DSMath {
 
     // --- Auth ---
     function relyIntegration(address integration_) external onlyGov { 
-        require(integrations[integration_] = false, "integration/approved");
+        require(integrations[integration_] == false, "integration/approved");
         integrations[integration_] = true; // permit integration access
 
         emit IntegrationStatus(integration_, true);
     }
 
     function denyIntegration(address integration_) external onlyGov { 
-        require(integrations[integration_] = true, "integration/not-approved");
+        require(integrations[integration_] == true, "integration/not-approved");
         integrations[integration_] = false; // deny integration access
 
         emit IntegrationStatus(integration_, false);
@@ -98,7 +98,7 @@ contract Gate1 is DSMath {
     // --- UTILS ---
     // return dai balance amount
     function daiBalance() public view returns (uint256) {
-        return vat.dai(address(this));
+        return VatAbstract(vat).dai(address(this));
     }
 
     // transfer dai balance from gate to destination
@@ -106,7 +106,7 @@ contract Gate1 is DSMath {
         // check if sufficient dai balance is present
         require(amount_ <= daiBalance(), "gate/insufficient-dai-balance");
 
-        vat.move(address(this), dst_, amount_); // transfer as vat dai balance
+        VatAbstract(vat).move(address(this), dst_, amount_); // transfer as vat dai balance
     }
 
     // return maximum draw amount possible
@@ -141,7 +141,7 @@ contract Gate1 is DSMath {
             approvedTotal = subu(approvedTotal, amount_);
 
             // call suck to transfer dai from vat to this gate contract
-            try vat.suck(address(vow), address(this), amount_) {
+            try VatAbstract(vat).suck(address(vow), address(this), amount_) {
                 // optional: can call vat.heal(amount_) here to ensure
                 // surplus buffer has sufficient dai balance 
                 
@@ -230,6 +230,6 @@ contract Gate1 is DSMath {
     // access to heal can be used appropriately by an integration before drawing dai
     // for ex, to understand true state of surplus buffer
     function heal(uint rad) external {
-        vat.heal(rad);
+        VatAbstract(vat).heal(rad);
     }
 }
