@@ -34,12 +34,30 @@ import "./common/math.sol";
 //  * integrates with dai balance on vat, which uses the dsmath rad number type- 45 decimal fixed-point number
 //
 // - MISCELLANEOUS
-//  * does not execute vat.heal to ensure the dai draw amount from vat.suck is lower than the surplus buffer currently held in vow
+//  * does not execute vow.heal to ensure the dai draw amount from vat.suck is lower than the surplus buffer currently held in vow
 //  * does not check whether vat is live at deployment time
-//  * vat, gov, and vow addresses cannot be updated after deployment
+//  * vat, and vow addresses cannot be updated after deployment
 
 contract Gate1 is DSMath {
-    address public gov; // maker protocol governance
+    // --- Auth ---
+    mapping (address => uint) public wards;
+    event Rely(address indexed usr);
+    event Deny(address indexed usr);
+    function rely(address usr) external auth {
+        wards[usr] = 1;
+
+        emit Rely(usr);
+    }
+    function deny(address usr) external auth {
+        wards[usr] = 0;
+
+        emit Deny(usr);
+    }
+    modifier auth {
+        require(wards[msg.sender] == 1, "gate1/not-authorized");
+        _;
+    }
+
     address public vat; // maker protocol vat
     address public vow; // maker protocol vow
 
@@ -51,8 +69,10 @@ contract Gate1 is DSMath {
     // withdraw condition- timestamp after which backup dai balance withdrawal is allowed
     uint256 public withdrawAfter; // [timestamp]
 
-    constructor(address gov_, address vat_, address vow_) {
-        gov = gov_; // set governance address 
+    constructor(address vat_, address vow_) {
+        wards[msg.sender] = 1;
+        emit Rely(msg.sender);
+
         vat = vat_; // set vat address
         vow = vow_; // set vow address
 
@@ -63,11 +83,6 @@ contract Gate1 is DSMath {
     }
 
     // --- Function Modifiers ---
-    modifier onlyGov() {
-        require(msg.sender == gov, "gov/not-authorized"); // only allow governance
-        _;
-    }
-
     modifier onlyIntegration() {
         require(integrations[msg.sender] == true, "integration/not-authorized"); // only allow approved integration
         _;
@@ -81,14 +96,14 @@ contract Gate1 is DSMath {
     event Withdraw(uint256 amount_); // logs amount withdrawn from backup balance
 
     // --- Auth ---
-    function relyIntegration(address integration_) external onlyGov { 
+    function relyIntegration(address integration_) external auth { 
         require(integrations[integration_] == false, "integration/approved");
         integrations[integration_] = true; // permit integration access
 
         emit IntegrationStatus(integration_, true);
     }
 
-    function denyIntegration(address integration_) external onlyGov { 
+    function denyIntegration(address integration_) external auth { 
         require(integrations[integration_] == true, "integration/not-approved");
         integrations[integration_] = false; // deny integration access
 
@@ -119,7 +134,7 @@ contract Gate1 is DSMath {
 
     // --- Draw Limits ---
     // allow governance to update draw limit
-    function updateApprovedTotal(uint256 newTotal_) public onlyGov {
+    function updateApprovedTotal(uint256 newTotal_) public auth {
         approvedTotal = newTotal_; // update approved total amount
 
         emit NewApprovedTotal(newTotal_);
@@ -142,7 +157,7 @@ contract Gate1 is DSMath {
 
             // call suck to transfer dai from vat to this gate contract
             try VatAbstract(vat).suck(address(vow), address(this), amount_) {
-                // optional: can call vat.heal(amount_) here to ensure
+                // optional: can call vow.heal(amount_) here to ensure
                 // surplus buffer has sufficient dai balance 
                 
                 // accessSuck success- successful vat.suck execution for requested amount
@@ -203,9 +218,9 @@ contract Gate1 is DSMath {
     }
     
     // withdraw dai backup balance
-    function withdrawDai(uint256 amount_) external onlyGov {
+    function withdrawDai(address dst_, uint256 amount_) external auth {
         require(withdrawalConditionSatisfied(amount_), "withdraw-condition-not-satisfied");
-        transferDai(gov, amount_); // withdraw dai to governance address
+        transferDai(dst_, amount_); // withdraw dai to governance address
 
         emit Withdraw(amount_);
     }
@@ -214,7 +229,7 @@ contract Gate1 is DSMath {
     /// @dev restricted to be executed only by current governance
     /// @param newWithdrawAfter New timestamp
     /// @notice can only set withdrawAfter to a higher timestamp
-    function updateWithdrawAfter(uint256 newWithdrawAfter) public onlyGov {
+    function updateWithdrawAfter(uint256 newWithdrawAfter) public auth {
         require(newWithdrawAfter > withdrawAfter, "withdrawAfter/value-lower");
         withdrawAfter = newWithdrawAfter;
 
@@ -227,8 +242,8 @@ contract Gate1 is DSMath {
     // both public and restricted functions
     
     // heal forwarder 
-    // access to heal can be used appropriately by an integration before drawing dai
-    // for ex, to understand true state of surplus buffer
+    // access to vat.heal can be used appropriately by an integration 
+    // when it maintains its own sin balance
     function heal(uint rad) external {
         VatAbstract(vat).heal(rad);
     }

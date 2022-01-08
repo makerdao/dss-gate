@@ -8,10 +8,9 @@ import "../gate1.sol";
 import "./Vm.sol";
 
 contract TestVat is Vat {
-    uint256 constant ONE = 10 ** 27;
-    function mint(address usr, uint wad) public {
-        dai[usr] += wad * ONE;
-        debt += wad * ONE;
+    function mint(address usr, uint rad) public {
+        dai[usr] += rad;
+        debt += rad;
     }
 }
 
@@ -36,7 +35,7 @@ contract Integration {
 }
 
 // when gate is deployed
-contract DeployGate1Test is DSTest {
+contract DeployGate1Test is DSTest, DSMath {
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     Vat vat;
@@ -44,19 +43,23 @@ contract DeployGate1Test is DSTest {
     Gate1 gate;
     address me;
 
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
     function setUp() public {
         vm.warp(1641400537);
 
         me = address(this);
         vat = new Vat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
     }
 
     // should set gov vat and vow addresses
     function testAddresses() public {
-        assertTrue(gate.gov() == me);
+        assertTrue(gate.wards(me) == 1);
         assertTrue(gate.vat() != address(0));
         assertTrue(gate.vow() != address(0));
     }
@@ -68,7 +71,7 @@ contract DeployGate1Test is DSTest {
 }
 
 // when integration is denied approval
-contract IntegrationAuthDeniedGate1Test is DSTest {
+contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     Vat vat;
@@ -79,13 +82,17 @@ contract IntegrationAuthDeniedGate1Test is DSTest {
     address user1;
     address user2;
 
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
     function setUp() public {
         vm.warp(1641400537);
 
         me = address(this);
         vat = new Vat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
 
         user1 = address(new Integration(gate));
@@ -112,7 +119,7 @@ contract IntegrationAuthDeniedGate1Test is DSTest {
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
         
-        vm.expectRevert("gov/not-authorized");
+        vm.expectRevert("gate1/not-authorized");
         gate.denyIntegration(user1);
     }
 
@@ -124,7 +131,7 @@ contract IntegrationAuthDeniedGate1Test is DSTest {
 }
 
 // when integration is approved
-contract IntegrationAuthApprovedGate1Test is DSTest {
+contract IntegrationAuthApprovedGate1Test is DSTest, DSMath {
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     Vat vat;
@@ -135,13 +142,17 @@ contract IntegrationAuthApprovedGate1Test is DSTest {
     address user1;
     address user2;
 
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
     function setUp() public {
         vm.warp(1641400537);
 
         me = address(this);
         vat = new Vat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
 
         user1 = address(new Integration(gate));
@@ -168,7 +179,7 @@ contract IntegrationAuthApprovedGate1Test is DSTest {
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
         
-        vm.expectRevert("gov/not-authorized");
+        vm.expectRevert("gate1/not-authorized");
         gate.relyIntegration(user1);
     }
 
@@ -180,45 +191,8 @@ contract IntegrationAuthApprovedGate1Test is DSTest {
 }
 
 // when dai balance is called
-contract DaiBalanceGate1Test is DSTest {
+contract DaiBalanceGate1Test is DSTest, DSMath {
     Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
-
-    TestVat vat;
-    MockVow vow;
-    Gate1 gate;
-    address me;
-
-    address user1;
-    address user2;
-
-    function setUp() public {
-        vm.warp(1641400537);
-
-        me = address(this);
-        vat = new TestVat();
-        vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
-        vat.rely(address(gate));
-
-        user1 = address(new Integration(gate));
-        user2 = address(new Integration(gate));
-
-        vat.mint(address(this), 123 ether);
-    }
-
-    // should return dai balance of gate in vat
-    function testDaiBalance() public {
-        // transfer dai to gate
-        vat.move(address(this), address(gate), 100 ether);
-
-        // check if balance matches
-        assertEq(gate.daiBalance(), 100 ether);
-    }
-}
-
-// when max draw amount is called
-contract MaxDrawGate1Test is DSTest, DSMath {
-Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
 
     TestVat vat;
     MockVow vow;
@@ -238,7 +212,48 @@ Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
         me = address(this);
         vat = new TestVat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
+        vat.rely(address(gate));
+
+        user1 = address(new Integration(gate));
+        user2 = address(new Integration(gate));
+
+        vat.mint(address(this), rad(123));
+    }
+
+    // should return dai balance of gate in vat
+    function testDaiBalance() public {
+        // transfer dai to gate
+        vat.move(address(this), address(gate), rad(100));
+
+        // check if balance matches
+        assertEq(gate.daiBalance(), rad(100));
+    }
+}
+
+// when max draw amount is called
+contract MaxDrawGate1Test is DSTest, DSMath {
+    Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    TestVat vat;
+    MockVow vow;
+    Gate1 gate;
+    address me;
+
+    address user1;
+    address user2;
+
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
+    function setUp() public {
+        vm.warp(1641400537);
+
+        me = address(this);
+        vat = new TestVat();
+        vow = new MockVow();
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
 
         user1 = address(new Integration(gate));
@@ -296,7 +311,7 @@ contract ApprovedTotalUpdateGate1Test is DSTest, DSMath {
         me = address(this);
         vat = new TestVat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
 
         user1 = address(new Integration(gate));
@@ -311,7 +326,7 @@ contract ApprovedTotalUpdateGate1Test is DSTest, DSMath {
     function testUpdateNewApprovedTotalNotGov() public {
         vm.prank(address(1337)); // impersonate random address
         
-        vm.expectRevert("gov/not-authorized");
+        vm.expectRevert("gate1/not-authorized");
         gate.updateApprovedTotal(rad(999));
     }
 
@@ -358,7 +373,7 @@ contract DaiDrawnGate1Test is DSTest, DSMath {
         me = address(this);
         vat = new TestVat();
         vow = new MockVow();
-        gate = new Gate1(me, address(vat), address(vow));
+        gate = new Gate1(address(vat), address(vow));
         vat.rely(address(gate));
 
         user1 = new Integration(gate);
@@ -490,5 +505,212 @@ contract DaiDrawnGate1Test is DSTest, DSMath {
         user1.draw(rad(25)); // draw: 25
         assertEq(gate.approvedTotal(), rad(10));  // approved total unchanged
         assertEq(vat.dai(address(gate)), rad(25)); // backup balance: 25
+    }
+}
+
+// when dai is withdrawn by governance
+contract DaiWithdrawnGate1Test is DSTest, DSMath {
+    Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    TestVat vat;
+    MockVow vow;
+    Gate1 gate;
+    address me;
+
+    Integration user1;
+    Integration user2;
+
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
+    function setUp() public {
+        vm.warp(1641400537);
+
+        me = address(this);
+        vat = new TestVat();
+        vow = new MockVow();
+        gate = new Gate1(address(vat), address(vow));
+        vat.rely(address(gate));
+
+        user1 = new Integration(gate);
+        gate.relyIntegration(address(user1)); // authorize user1
+        user2 = new Integration(gate);
+
+        vat.mint(me, rad(123)); // mint dai
+        vat.move(me, address(gate), rad(75)); // backup balance: 75
+    }
+
+    // should fail if caller is not gov
+    function testCallerNotGov() public {
+        vm.prank(address(1337)); // impersonate random address
+        
+        vm.expectRevert("gate1/not-authorized");
+        gate.withdrawDai(me, rad(10));
+    }
+
+    // should fail if current timestamp is before withdraw after
+    function testNowBeforeWithdrawAfter() public {
+        gate.updateWithdrawAfter(1641500000);
+        vm.warp(1641499900); // time before withdraw after
+        
+        vm.expectRevert("withdraw-condition-not-satisfied");
+        gate.withdrawDai(me, rad(10));
+    }
+
+    // should pass if caller is gov
+    function testCallerIsGov() public {
+        gate.updateWithdrawAfter(1641500000);
+        vm.warp(1641500111); // time after withdraw after
+        
+        gate.withdrawDai(me, rad(10));
+        assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
+    }
+
+    // should pass if current timestamp is after withdraw after
+    function testNowAfterWithdraw() public {
+        gate.updateWithdrawAfter(1641500000);
+        vm.warp(1641500111); // time after withdraw after
+        
+        gate.withdrawDai(me, rad(10));
+        assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
+    }
+
+    // should fail if sufficient balance is not present
+    function testBalanceNotPresent() public {
+        gate.updateWithdrawAfter(1641500000);
+        vm.warp(1641500111); // time after withdraw after
+        
+        vm.expectRevert("gate/insufficient-dai-balance");
+        gate.withdrawDai(me, rad(100)); // backup balance: 75
+    }
+
+    // should adjust dai balances of gate and gov by amount
+    function testDaiBalances() public {
+        gate.updateWithdrawAfter(1641500000);
+        vm.warp(1641500111); // time after withdraw after
+        
+        gate.withdrawDai(me, rad(10));
+        assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
+        assertEq(vat.dai(me), rad(58)); // 123 - 75 + 10 = 58
+    }
+
+    // todo should emit a withdraw event
+}
+
+// when withdraw after timestamp is updated
+contract WithdrawAfterUpdateGate1Test is DSTest, DSMath {
+    Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    TestVat vat;
+    MockVow vow;
+    Gate1 gate;
+    address me;
+
+    Integration user1;
+    Integration user2;
+
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
+    function setUp() public {
+        vm.warp(1641400537);
+
+        me = address(this);
+        vat = new TestVat();
+        vow = new MockVow();
+        gate = new Gate1(address(vat), address(vow));
+        vat.rely(address(gate));
+
+        user1 = new Integration(gate);
+        gate.relyIntegration(address(user1)); // authorize user1
+        user2 = new Integration(gate);
+
+        vat.mint(me, rad(123)); // mint dai
+    }
+
+    // should not be zero after deployment
+    function testWithdrawAfterNotZero() public {
+        assertGt(gate.withdrawAfter(), 0); 
+    }
+
+    // should fail if caller is not gov
+    function testCallerNotGov() public {
+        vm.prank(address(1337)); // impersonate random address
+        
+        vm.expectRevert("gate1/not-authorized");
+        gate.updateWithdrawAfter(1641500000);
+    }
+
+    // should pass if caller is gov
+    function testCallerGov() public {
+        gate.updateWithdrawAfter(1641500000);
+        assertEq(gate.withdrawAfter(), 1641500000);
+    }
+
+    // should fail if new withdraw after time is lower than previous
+    function testWithdrawAfterLower() public {
+        gate.updateWithdrawAfter(1641500000);
+
+        vm.expectRevert("withdrawAfter/value-lower");
+        gate.updateWithdrawAfter(1641400000);
+    }
+
+    // should set the input value when successful
+    function testWithdrawAfter() public {
+        gate.updateWithdrawAfter(1641500000);
+        assertEq(gate.withdrawAfter(), 1641500000); 
+    }
+
+    // todo should emit a new withdraw after event
+}
+
+// when heal is called
+contract VatForwarderHealGate1Test is DSTest, DSMath {
+    Vm vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    TestVat vat;
+    MockVow vow;
+    Gate1 gate;
+    address me;
+
+    Integration user1;
+    Integration user2;
+
+    function rad(uint256 amt_) public pure returns (uint256) {
+        return mulu(amt_, RAD);
+    }
+
+    function setUp() public {
+        vm.warp(1641400537);
+
+        me = address(this);
+        vat = new TestVat();
+        vow = new MockVow();
+        gate = new Gate1(address(vat), address(vow));
+        vat.rely(address(gate));
+
+        user1 = new Integration(gate);
+        gate.relyIntegration(address(user1)); // authorize user1
+        user2 = new Integration(gate);
+
+        vat.mint(address(gate), rad(100)); // mint dai to gate
+    }
+
+    // should fail if the amount exceeds sin balance
+    function testFailHealForward() public {
+        vat.suck(address(gate), address(gate), rad(50)); // generate sin on gate
+
+        gate.heal(rad(60));
+    }
+
+    // should reduce dai balance and sin balance
+    function testHealBalanceUpdate() public {
+        vat.suck(address(gate), address(gate), rad(50)); // generate sin on gate
+
+        gate.heal(rad(30));
+        assertEq(vat.dai(address(gate)), rad(120)); // 100 + 50 - 30
+        assertEq(vat.sin(address(gate)), rad(20)); // 50 - 30
     }
 }
