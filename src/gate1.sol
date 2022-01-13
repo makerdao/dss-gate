@@ -4,40 +4,42 @@ pragma solidity ^0.8.0;
 import "dss-interfaces.git/dss/VatAbstract.sol";
 import "./common/math.sol";
 
-// --- Gate 1 ---
-// Gate 1 "Simple Gate" design:
-//  * token approval style draw limit on vat.suck
-//  * backup dai balance in case vat.suck fails
-//  * access priority- try vat.suck first, backup balance second
-//  * no hybrid draw at one time from both vat.suck and backup balance
-//
-// - DEPLOYMENT
-//  * ideally, each gate contract should only be linked to a single integration
-//  * authorized integration can then request a dai amount from gate contract with a "draw" call
-// 
-// - DRAW LIMIT
-//  * a limit on the amount of dai that can an integration can draw with a vat.suck call
-//  * simple gate uses an approved total amount, similar to a token approval
-//  * integrations can access up to this dai amount in total
-//
-// - BACKUP BALANCE
-//  * gate can hold a backup dai balance
-//  * allows integrations to draw dai when calls to vat.suck fail for any reason
-//
-// - DRAW SOURCE SELECTION, ORDER
-//  * this gate will not draw from both sources(vat.suck, backup dai balance) in a single draw call
-//  * draw call forwarded to vat.suck first
-//  * and then backup balance is tried when vat.suck fails due to draw limit or if gate is not authorized by vat
-//  * unlike draw limits applied to a vat.suck call, no additional checks are done when backup balance is used as source for draw
-//
-// - DAI FORMAT
-//  * integrates with dai balance on vat, which uses the dsmath rad number type- 45 decimal fixed-point number
-//
-// - MISCELLANEOUS
-//  * does not execute vow.heal to ensure the dai draw amount from vat.suck is lower than the surplus buffer currently held in vow
-//  * does not check whether vat is live at deployment time
-//  * vat, and vow addresses cannot be updated after deployment
+/**
+ @title Gate 1 "Simple Gate"
+ @author Vamsi Alluri
+ FEATURES
+  * token approval style draw limit on vat.suck
+  * backup dai balance in case vat.suck fails
+  * access priority- try vat.suck first, backup balance second
+  * no hybrid draw at one time from both vat.suck and backup balance
 
+ DEPLOYMENT
+  * ideally, each gate contract should only be linked to a single integration
+  * authorized integration can then request a dai amount from gate contract with a "draw" call
+
+ DRAW LIMIT
+  * a limit on the amount of dai that can an integration can draw with a vat.suck call
+  * simple gate uses an approved total amount, similar to a token approval
+  * integrations can access up to this dai amount in total
+
+ BACKUP BALANCE
+  * gate can hold a backup dai balance
+  * allows integrations to draw dai when calls to vat.suck fail for any reason
+
+ DRAW SOURCE SELECTION, ORDER
+  * this gate will not draw from both sources(vat.suck, backup dai balance) in a single draw call
+  * draw call forwarded to vat.suck first
+  * and then backup balance is tried when vat.suck fails due to draw limit or if gate is not authorized by vat
+  * unlike draw limits applied to a vat.suck call, no additional checks are done when backup balance is used as source for draw
+
+ DAI FORMAT
+  * integrates with dai balance on vat, which uses the dsmath rad number type- 45 decimal fixed-point number
+
+ MISCELLANEOUS
+  * does not execute vow.heal to ensure the dai draw amount from vat.suck is lower than the surplus buffer currently held in vow
+  * does not check whether vat is live at deployment time
+  * vat, and vow addresses cannot be updated after deployment
+*/
 contract Gate1 is DSMath {
     // --- Auth ---
     mapping (address => uint) public wards;
@@ -58,15 +60,17 @@ contract Gate1 is DSMath {
         _;
     }
 
-    address public vat; // maker protocol vat
-    address public vow; // maker protocol vow
+    /// maker protocol vat
+    address public vat;
+    /// maker protocol vow
+    address public vow;
+    /// approval status
+    mapping (address => bool) public integrations;
 
-    mapping (address => bool) public integrations; // integrations access status
-
-    // draw limit- total amount that can be drawn from vat.suck
+    /// draw limit- total amount that can be drawn from vat.suck
     uint256 public approvedTotal; // [rad] 
 
-    // withdraw condition- timestamp after which backup dai balance withdrawal is allowed
+    /// withdraw condition- timestamp after which backup dai balance withdrawal is allowed
     uint256 public withdrawAfter; // [timestamp]
 
     constructor(address vat_, address vow_) {
@@ -96,6 +100,8 @@ contract Gate1 is DSMath {
     event Withdraw(uint256 amount_); // logs amount withdrawn from backup balance
 
     // --- Auth ---
+    /// Allow an address to access restricted functions
+    /// @param integration_ address
     function relyIntegration(address integration_) external auth { 
         require(integrations[integration_] == false, "integration/approved");
         integrations[integration_] = true; // permit integration access
@@ -103,6 +109,8 @@ contract Gate1 is DSMath {
         emit IntegrationStatus(integration_, true);
     }
 
+    /// Deny an address from accessing restricted functions
+    /// @param integration_ address
     function denyIntegration(address integration_) external auth { 
         require(integrations[integration_] == true, "integration/not-approved");
         integrations[integration_] = false; // deny integration access
@@ -111,12 +119,16 @@ contract Gate1 is DSMath {
     }
 
     // --- UTILS ---
-    // return dai balance amount
+    /// Return dai balance held by the gate contract
+    /// @return amount rad 
     function daiBalance() public view returns (uint256) {
         return VatAbstract(vat).dai(address(this));
     }
 
-    // transfer dai balance from gate to destination
+    /// Transfer dai balance from gate to destination address
+    /// @param dst_ destination address
+    /// @param amount_ dai amount to send
+    /// @dev amount_ is in rad
     function transferDai(address dst_, uint256 amount_) internal {
         // check if sufficient dai balance is present
         require(amount_ <= daiBalance(), "gate/insufficient-dai-balance");
@@ -124,29 +136,32 @@ contract Gate1 is DSMath {
         VatAbstract(vat).move(address(this), dst_, amount_); // transfer as vat dai balance
     }
 
-    // return maximum draw amount possible
-    // based on draw limit and backup balance
-    // this gate design can only draw from one of these two sources in a single call
-    // max draw amount returned does not account for conditions that could result in failure of the vat.suck call
+    /// Return the maximum draw amount possible from all paths
+    /// Both draw limit on suck and backup balance are considered
+    /// @dev Possible failure of the vat.suck call due to auth issues et cetra is not accounted for
+    /// @return amount rad
     function maxDrawAmount() public view returns (uint256) {
-        return max(approvedTotal, daiBalance());
+        return max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
     }
 
     // --- Draw Limits ---
-    // allow governance to update draw limit
+    /// Update draw limit
+    /// @dev Restricted to authorized governance addresses
+    /// @dev Approved total can be updated to both a higher or lower value
+    /// @param newTotal_ Updated approved total amount
     function updateApprovedTotal(uint256 newTotal_) public auth {
         approvedTotal = newTotal_; // update approved total amount
 
         emit NewApprovedTotal(newTotal_);
     }
 
-    // internal function that performs a draw limit check and then calls vat.suck
-    // returns true upon successful vat.suck call
-    // else return false
-    // does not revert when vat.suck fails to allow parent draw call
-    // to determine best course of action, ex: try to use backup balance next
-    // note: draw can still be successful even after accessSuck failure if sufficient backup balance is present
-     // vat.suck can fail due to lack of authorization in vat, or after emergency shutdown
+    /// Draw limit implementation
+    /// Returns true upon successful vat.suck call
+    /// Returns false when vat.suck call fails or draw limit check fails
+    /// @dev Does not revert when vat.suck fails to ensure gate can try alternate draw paths
+    /// @dev and determine best course of action, ex: try backup balance
+    /// @param amount_ dai amount to draw from a vat.suck() call
+    /// @return status 
     function accessSuck(uint256 amount_) internal returns (bool) {
         // ensure approved total to access vat.suck is greater than draw amount requested
         bool drawLimitCheck = (approvedTotal >= amount_);
@@ -173,10 +188,13 @@ contract Gate1 is DSMath {
     }
 
     // --- Draw Functions ---
-    // draw implementation
-    // draw can be successful even after vat.suck fails when backup balance held exceeds amount requested
-    // draw will fail even if the combined balance from draw limit and backup balance adds up to the amount requested
-    // this implementation can only draw dai from a single source between vat.suck and backup dai balance in a single draw call
+    /// Internal Draw implementation
+    /// Draw can be successful even after accessSuck failure(returns false) when sufficient backup balance is present
+    /// @dev Draw will fail in this design even if the combined balance from draw limit
+    /// @dev and backup balance adds up to the amount requested
+    /// @dev This design can only draw dai from a single source, either vat.suck() or backup dai balance, in a single draw call
+    /// @param dst_ destination address to send drawn dai
+    /// @param amount_ dai amount sent, rad
     function _draw(address dst_, uint256 amount_) internal {
         bool suckStatus = accessSuck(amount_); // try drawing amount from vat.suck
 
@@ -188,12 +206,18 @@ contract Gate1 is DSMath {
         emit Draw(dst_, amount_, suckStatus); // suckStatus logs whether suck(true) or backup balance(false) was used
     }
 
-    // draw function for integration to draw dai from gate
+    /// Draw function
+    /// @dev Restricted to approved integration addresses
+    /// @param amount_ dai amount in rad
     function draw(uint256 amount_) external onlyIntegration {
         _draw(msg.sender, amount_);
     }
 
-    // implements a function with the same signature as vat.suck for backwards compatibility
+    /// Vat.suck() interface for backwards compatibility with Vat
+    /// @dev Restricted to approved integration addresses
+    /// @param u source address to assign vat.sin balance generated by the suck call
+    /// @param v destination address to send dai drawn
+    /// @param rad amount of dai drawn
     function suck(address u, address v, uint256 rad) external onlyIntegration {
         u; // ignored
         // accessSuck already incorporartes the vow address as u according to the specification
@@ -202,33 +226,32 @@ contract Gate1 is DSMath {
     }
 
     // --- Backup Balance Withdraw Restrictions ---
-    // withdrawal restrictions check
-    // withdrawalConditionSatisfied() function returns true or false
-    // allows or stops governance from withdrawing dai from the backup balance
-    // note: function implements a standard interface with the amount_ input but value is not utilized here
-    function withdrawalConditionSatisfied(uint256 amount_) internal returns (bool) {
-        // restriction on withdrawal based on balance expiry date
-        // not based on amount_ withdrawn in this gate design
-        amount_; // ignored
-
-        // governance can withdraw any amount of the backup balance once past withdrawAfter timestamp
+    /// Internal backup balance withdrawal restrictions implementation
+    /// Allows or stops authorized governance addresses from withdrawing dai from the backup balance
+    /// @return status true when allowed and false when not allowed
+    function withdrawalConditionSatisfied() internal returns (bool) {
+        // governance is allowed to withdraw any amount of the backup balance
+        // once past withdrawAfter timestamp
         bool withdrawalAllowed = (block.timestamp >= withdrawAfter);
 
         return withdrawalAllowed;
     }
     
-    // withdraw dai backup balance
+    /// Withdraw backup balance
+    /// @dev Restricted to authorized governance addresses
+    /// @param dst_ destination address
+    /// @param amount_ amount of dai
     function withdrawDai(address dst_, uint256 amount_) external auth {
-        require(withdrawalConditionSatisfied(amount_), "withdraw-condition-not-satisfied");
+        require(withdrawalConditionSatisfied(), "withdraw-condition-not-satisfied");
         transferDai(dst_, amount_); // withdraw dai to governance address
 
         emit Withdraw(amount_);
     }
 
     /// Update withdrawAfter timestamp
-    /// @dev restricted to be executed only by current governance
-    /// @param newWithdrawAfter New timestamp
-    /// @notice can only set withdrawAfter to a higher timestamp
+    /// Can only set withdrawAfter to a higher timestamp
+    /// @dev Restricted to authorized governance addresses
+    /// @param newWithdrawAfter New timestamp to set
     function updateWithdrawAfter(uint256 newWithdrawAfter) public auth {
         require(newWithdrawAfter > withdrawAfter, "withdrawAfter/value-lower");
         withdrawAfter = newWithdrawAfter;
@@ -237,13 +260,10 @@ contract Gate1 is DSMath {
     }
 
     // --- Vat Forwarders ---
-    // gate can be setup as a one-stop access point to vat 
-    // vat function forwarders allow an integration to call other vat functions
-    // both public and restricted functions
-    
-    // heal forwarder 
-    // access to vat.heal can be used appropriately by an integration 
-    // when it maintains its own sin balance
+    /// Forward vat.heal() call
+    /// @dev Access to vat.heal() can be used appropriately by an integration 
+    /// @dev when it maintains its own sin balance
+    /// @param rad dai amount
     function heal(uint rad) external {
         VatAbstract(vat).heal(rad);
     }
