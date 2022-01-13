@@ -96,7 +96,7 @@ contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
         vat.rely(address(gate));
 
         user1 = address(new Integration(gate));
-        gate.relyIntegration(user1); // approve integration user1
+        gate.kiss(user1); // approve integration user1
         
         user2 = address(new Integration(gate));
     }
@@ -105,14 +105,14 @@ contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
 
     // should fail if integration is not already approved
     function testIntegrationNotApproved() public {
-        vm.expectRevert("integration/not-approved");
-        gate.denyIntegration(user2);
+        vm.expectRevert("bud/not-approved");
+        gate.diss(user2);
     }
 
     // should pass if integration is approved
     function testIntegrationApproved() public {
-        gate.denyIntegration(user1);
-        assertTrue(!gate.integrations(user1));
+        gate.diss(user1);
+        assertEq(gate.bud(user1), 0);
     }
 
     // should fail if caller is not gov
@@ -120,13 +120,13 @@ contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
         vm.prank(address(1337)); // impersonate random address
         
         vm.expectRevert("gate1/not-authorized");
-        gate.denyIntegration(user1);
+        gate.diss(user1);
     }
 
     // should pass if caller is gov
     function testCallerGov() public {
-        gate.denyIntegration(user1);
-        assertTrue(!gate.integrations(user1));
+        gate.diss(user1);
+        assertEq(gate.bud(user1), 0);
     }
 }
 
@@ -163,16 +163,16 @@ contract IntegrationAuthApprovedGate1Test is DSTest, DSMath {
 
     // should fail if integration was already approved
     function testIntegrationNotApproved() public {
-        gate.relyIntegration(user1);
+        gate.kiss(user1);
 
-        vm.expectRevert("integration/approved");
-        gate.relyIntegration(user1);
+        vm.expectRevert("bud/approved");
+        gate.kiss(user1);
     }
 
     // should pass if integration is not approved
     function testIntegrationApproved() public {
-        gate.relyIntegration(user1);
-        assertTrue(gate.integrations(user1));
+        gate.kiss(user1);
+        assertEq(gate.bud(user1), 1);
     }
 
     // should fail if caller is not gov
@@ -180,13 +180,13 @@ contract IntegrationAuthApprovedGate1Test is DSTest, DSMath {
         vm.prank(address(1337)); // impersonate random address
         
         vm.expectRevert("gate1/not-authorized");
-        gate.relyIntegration(user1);
+        gate.kiss(user1);
     }
 
     // should pass if caller is gov
     function testCallerGov() public {
-        gate.relyIntegration(user1);
-        assertTrue(gate.integrations(user1));
+        gate.kiss(user1);
+        assertEq(gate.bud(user1), 1);
     }
 }
 
@@ -377,7 +377,7 @@ contract DaiDrawnGate1Test is DSTest, DSMath {
         vat.rely(address(gate));
 
         user1 = new Integration(gate);
-        gate.relyIntegration(address(user1)); // authorize user1
+        gate.kiss(address(user1)); // authorize user1
         user2 = new Integration(gate);
 
         vat.mint(address(this), rad(123)); // mint dai
@@ -385,7 +385,7 @@ contract DaiDrawnGate1Test is DSTest, DSMath {
 
     // draw fails if integration is not approved
     function testIntegrationNotApproved() public {
-        vm.expectRevert("integration/not-authorized");
+        vm.expectRevert("bud/not-authorized");
         user2.draw(rad(1)); // user2 not authorized
     }
 
@@ -534,7 +534,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
         vat.rely(address(gate));
 
         user1 = new Integration(gate);
-        gate.relyIntegration(address(user1)); // authorize user1
+        gate.kiss(address(user1)); // authorize user1
         user2 = new Integration(gate);
 
         vat.mint(me, rad(123)); // mint dai
@@ -624,7 +624,7 @@ contract WithdrawAfterUpdateGate1Test is DSTest, DSMath {
         vat.rely(address(gate));
 
         user1 = new Integration(gate);
-        gate.relyIntegration(address(user1)); // authorize user1
+        gate.kiss(address(user1)); // authorize user1
         user2 = new Integration(gate);
 
         vat.mint(me, rad(123)); // mint dai
@@ -692,7 +692,7 @@ contract VatForwarderHealGate1Test is DSTest, DSMath {
         vat.rely(address(gate));
 
         user1 = new Integration(gate);
-        gate.relyIntegration(address(user1)); // authorize user1
+        gate.kiss(address(user1)); // authorize user1
         user2 = new Integration(gate);
 
         vat.mint(address(gate), rad(100)); // mint dai to gate
