@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: UNLICENSED */
 pragma solidity ^0.8.0;
 
-import "dss-interfaces.git/dss/VatAbstract.sol";
+abstract contract VatAbstract {
+    function heal(uint256) external virtual;
+    function suck(address, address, uint256) external virtual;
+    function dai(address) external virtual view returns (uint256);
+    function move(address, address, uint256) external virtual;
+}
 
 /**
  @title Gate 1 "Simple Gate"
