@@ -89,9 +89,9 @@ contract Gate1 {
     modifier toll { require(bud[msg.sender] == 1, "bud/not-authorized"); _; }
 
     /// maker protocol vat
-    address public vat;
+    address public immutable vat;
     /// maker protocol vow
-    address public vow;
+    address public immutable vow;
 
     /// draw limit- total amount that can be drawn from vat.suck
     uint256 public approvedTotal; // [rad]
