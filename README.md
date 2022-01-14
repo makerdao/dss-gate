@@ -18,3 +18,7 @@ Features:
 * Backup dai balance in case vat.suck fails
 * Access priority- vat.suck first, backup balance second
 * No hybrid draw at one time from both vat.suck and backup balance
+
+# Development
+
+* Requires [Foundry](https://github.com/gakonst/foundry)
