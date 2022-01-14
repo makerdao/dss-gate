@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "dss-interfaces.git/dss/VatAbstract.sol";
-import "./common/math.sol";
 
 /**
  @title Gate 1 "Simple Gate"
@@ -40,7 +39,7 @@ import "./common/math.sol";
   * does not check whether vat is live at deployment time
   * vat, and vow addresses cannot be updated after deployment
 */
-contract Gate1 is DSMath {
+contract Gate1 {
     // --- Auth ---
     mapping (address => uint256) public wards;                                       // Addresses with admin authority
     event Rely(address indexed usr);
@@ -106,6 +105,10 @@ contract Gate1 is DSMath {
         return VatAbstract(vat).dai(address(this));
     }
 
+    function _max(uint x, uint y) internal pure returns (uint z) {
+        return x <= y ? y : x;
+    }
+
     /// Transfer dai balance from gate to destination address
     /// @param dst_ destination address
     /// @param amount_ dai amount to send
@@ -122,7 +125,7 @@ contract Gate1 is DSMath {
     /// @dev Possible failure of the vat.suck call due to auth issues et cetra is not accounted for
     /// @return amount rad
     function maxDrawAmount() public view returns (uint256) {
-        return max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
+        return _max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
     }
 
     // --- Draw Limits ---
@@ -149,7 +152,7 @@ contract Gate1 is DSMath {
 
         if(drawLimitCheck) { // check passed
             // decrease approvedTotal by draw amount
-            approvedTotal = subu(approvedTotal, amount_);
+            approvedTotal = approvedTotal - amount_;
 
             // call suck to transfer dai from vat to this gate contract
             try VatAbstract(vat).suck(address(vow), address(this), amount_) {
