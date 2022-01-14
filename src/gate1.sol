@@ -75,7 +75,7 @@ contract Gate1 is DSMath {
     address public vow;
 
     /// draw limit- total amount that can be drawn from vat.suck
-    uint256 public approvedTotal; // [rad] 
+    uint256 public approvedTotal; // [rad]
 
     /// withdraw condition- timestamp after which backup dai balance withdrawal is allowed
     uint256 public withdrawAfter; // [timestamp]
@@ -88,9 +88,9 @@ contract Gate1 is DSMath {
         vow = vow_; // set vow address
 
         withdrawAfter = block.timestamp; // set withdrawAfter to now
-        // governance should set withdrawAfter to a future timestamp after deployment 
-        // and loading a backup balance in gate to give the integration a guarantee 
-        // that the backup dai balance will not be prematurely withdrawn 
+        // governance should set withdrawAfter to a future timestamp after deployment
+        // and loading a backup balance in gate to give the integration a guarantee
+        // that the backup dai balance will not be prematurely withdrawn
     }
 
     // --- Events ---
@@ -101,7 +101,7 @@ contract Gate1 is DSMath {
 
     // --- UTILS ---
     /// Return dai balance held by the gate contract
-    /// @return amount rad 
+    /// @return amount rad
     function daiBalance() public view returns (uint256) {
         return VatAbstract(vat).dai(address(this));
     }
@@ -142,7 +142,7 @@ contract Gate1 is DSMath {
     /// @dev Does not revert when vat.suck fails to ensure gate can try alternate draw paths
     /// @dev and determine best course of action, ex: try backup balance
     /// @param amount_ dai amount to draw from a vat.suck() call
-    /// @return status 
+    /// @return status
     function accessSuck(uint256 amount_) internal returns (bool) {
         // ensure approved total to access vat.suck is greater than draw amount requested
         bool drawLimitCheck = (approvedTotal >= amount_);
@@ -154,8 +154,8 @@ contract Gate1 is DSMath {
             // call suck to transfer dai from vat to this gate contract
             try VatAbstract(vat).suck(address(vow), address(this), amount_) {
                 // optional: can call vow.heal(amount_) here to ensure
-                // surplus buffer has sufficient dai balance 
-                
+                // surplus buffer has sufficient dai balance
+
                 // accessSuck success- successful vat.suck execution for requested amount
                 return true;
             } catch {
@@ -180,7 +180,7 @@ contract Gate1 is DSMath {
         bool suckStatus = accessSuck(amount_); // try drawing amount from vat.suck
 
         // amount can still come from backup balance after accessSuck fails
-        
+
         // transfer amount to the input destination address
         transferDai(dst_, amount_);
 
@@ -217,7 +217,7 @@ contract Gate1 is DSMath {
 
         return withdrawalAllowed;
     }
-    
+
     /// Withdraw backup balance
     /// @dev Restricted to authorized governance addresses
     /// @param dst_ destination address
@@ -242,7 +242,7 @@ contract Gate1 is DSMath {
 
     // --- Vat Forwarders ---
     /// Forward vat.heal() call
-    /// @dev Access to vat.heal() can be used appropriately by an integration 
+    /// @dev Access to vat.heal() can be used appropriately by an integration
     /// @dev when it maintains its own sin balance
     /// @param rad dai amount
     function heal(uint rad) external {

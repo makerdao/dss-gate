@@ -97,7 +97,7 @@ contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
 
         user1 = address(new Integration(gate));
         gate.kiss(user1); // approve integration user1
-        
+
         user2 = address(new Integration(gate));
     }
 
@@ -118,7 +118,7 @@ contract IntegrationAuthDeniedGate1Test is DSTest, DSMath {
     // should fail if caller is not gov
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
-        
+
         vm.expectRevert("gate1/not-authorized");
         gate.diss(user1);
     }
@@ -178,7 +178,7 @@ contract IntegrationAuthApprovedGate1Test is DSTest, DSMath {
     // should fail if caller is not gov
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
-        
+
         vm.expectRevert("gate1/not-authorized");
         gate.kiss(user1);
     }
@@ -325,7 +325,7 @@ contract ApprovedTotalUpdateGate1Test is DSTest, DSMath {
     // should fail if address is not gov
     function testUpdateNewApprovedTotalNotGov() public {
         vm.prank(address(1337)); // impersonate random address
-        
+
         vm.expectRevert("gate1/not-authorized");
         gate.updateApprovedTotal(rad(999));
     }
@@ -435,7 +435,7 @@ contract DaiDrawnGate1Test is DSTest, DSMath {
         vat.deny(address(gate)); // no vat auth
         vat.move(me, address(gate), rad(50)); // backup balance: 50
 
-        user1.draw(rad(75)); // draw from vat: 75 
+        user1.draw(rad(75)); // draw from vat: 75
     }
 
     // draw updates balance of integration and gate when backup balance is used
@@ -544,7 +544,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     // should fail if caller is not gov
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
-        
+
         vm.expectRevert("gate1/not-authorized");
         gate.withdrawDai(me, rad(10));
     }
@@ -553,7 +553,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     function testNowBeforeWithdrawAfter() public {
         gate.updateWithdrawAfter(1641500000);
         vm.warp(1641499900); // time before withdraw after
-        
+
         vm.expectRevert("withdraw-condition-not-satisfied");
         gate.withdrawDai(me, rad(10));
     }
@@ -562,7 +562,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     function testCallerIsGov() public {
         gate.updateWithdrawAfter(1641500000);
         vm.warp(1641500111); // time after withdraw after
-        
+
         gate.withdrawDai(me, rad(10));
         assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
     }
@@ -571,7 +571,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     function testNowAfterWithdraw() public {
         gate.updateWithdrawAfter(1641500000);
         vm.warp(1641500111); // time after withdraw after
-        
+
         gate.withdrawDai(me, rad(10));
         assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
     }
@@ -580,7 +580,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     function testBalanceNotPresent() public {
         gate.updateWithdrawAfter(1641500000);
         vm.warp(1641500111); // time after withdraw after
-        
+
         vm.expectRevert("gate/insufficient-dai-balance");
         gate.withdrawDai(me, rad(100)); // backup balance: 75
     }
@@ -589,7 +589,7 @@ contract DaiWithdrawnGate1Test is DSTest, DSMath {
     function testDaiBalances() public {
         gate.updateWithdrawAfter(1641500000);
         vm.warp(1641500111); // time after withdraw after
-        
+
         gate.withdrawDai(me, rad(10));
         assertEq(vat.dai(address(gate)), rad(65)); // backup balance: 65
         assertEq(vat.dai(me), rad(58)); // 123 - 75 + 10 = 58
@@ -632,13 +632,13 @@ contract WithdrawAfterUpdateGate1Test is DSTest, DSMath {
 
     // should not be zero after deployment
     function testWithdrawAfterNotZero() public {
-        assertGt(gate.withdrawAfter(), 0); 
+        assertGt(gate.withdrawAfter(), 0);
     }
 
     // should fail if caller is not gov
     function testCallerNotGov() public {
         vm.prank(address(1337)); // impersonate random address
-        
+
         vm.expectRevert("gate1/not-authorized");
         gate.updateWithdrawAfter(1641500000);
     }
@@ -660,7 +660,7 @@ contract WithdrawAfterUpdateGate1Test is DSTest, DSMath {
     // should set the input value when successful
     function testWithdrawAfter() public {
         gate.updateWithdrawAfter(1641500000);
-        assertEq(gate.withdrawAfter(), 1641500000); 
+        assertEq(gate.withdrawAfter(), 1641500000);
     }
 
     // todo should emit a new withdraw after event
