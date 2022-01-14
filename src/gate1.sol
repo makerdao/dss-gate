@@ -144,7 +144,7 @@ contract Gate1 {
     /// Both draw limit on suck and backup balance are considered
     /// @dev Possible failure of the vat.suck call due to auth issues et cetra is not accounted for
     /// @return amount rad
-    function maxDrawAmount() public view returns (uint256) {
+    function maxDrawAmount() external view returns (uint256) {
         return _max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
     }
 
@@ -153,7 +153,7 @@ contract Gate1 {
     /// @dev Restricted to authorized governance addresses
     /// @dev Approved total can be updated to both a higher or lower value
     /// @param newTotal_ Updated approved total amount
-    function updateApprovedTotal(uint256 newTotal_) public auth {
+    function updateApprovedTotal(uint256 newTotal_) external auth {
         approvedTotal = newTotal_; // update approved total amount
 
         emit NewApprovedTotal(newTotal_);
@@ -256,7 +256,7 @@ contract Gate1 {
     /// Can only set withdrawAfter to a higher timestamp
     /// @dev Restricted to authorized governance addresses
     /// @param newWithdrawAfter New timestamp to set
-    function updateWithdrawAfter(uint256 newWithdrawAfter) public auth {
+    function updateWithdrawAfter(uint256 newWithdrawAfter) external auth {
         require(newWithdrawAfter > withdrawAfter, "withdrawAfter/value-lower");
         withdrawAfter = newWithdrawAfter;
 
