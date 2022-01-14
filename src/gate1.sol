@@ -233,7 +233,7 @@ contract Gate1 {
     /// Internal backup balance withdrawal restrictions implementation
     /// Allows or stops authorized governance addresses from withdrawing dai from the backup balance
     /// @return status true when allowed and false when not allowed
-    function withdrawalConditionSatisfied() internal returns (bool) {
+    function withdrawalConditionSatisfied() internal view returns (bool) {
         // governance is allowed to withdraw any amount of the backup balance
         // once past withdrawAfter timestamp
         bool withdrawalAllowed = (block.timestamp >= withdrawAfter);
