@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.0;
 
 contract DSMath {
     uint256 constant internal WAD = 10 ** 18;
@@ -51,7 +51,7 @@ contract DSMath {
         require(int(x) >= 0);
         require(y == 0 || z / y == int(x));
     }
-    
+
     function diff(uint x, uint y) internal pure returns (int z) {
         z = int(x) - int(y);
         require(int(x) >= 0 && int(y) >= 0);
@@ -90,7 +90,7 @@ contract DSMath {
     function rdiv(uint x, uint y) internal pure returns (uint z) {
         z = mulu(x, RAY) / y;
     }
-    
+
     function rdivup(uint x, uint y) internal pure returns (uint z) {
         // always rounds up
         z = addu(mulu(x, RAY), subu(y, 1)) / y;
@@ -132,7 +132,7 @@ contract DSMath {
     function either(bool x, bool y) internal pure returns (bool z) {
         assembly{ z := or(x, y)}
     }
-    
+
     function both(bool x, bool y) internal pure returns (bool z) {
         assembly{ z := and(x, y)}
     }

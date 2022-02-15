@@ -1,8 +1,27 @@
-/* SPDX-License-Identifier: UNLICENSED */
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Copyright (C) 2022 Vamsi Alluri
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity ^0.8.0;
 
-import "dss-interfaces.git/dss/VatAbstract.sol";
-import "./common/math.sol";
+abstract contract VatAbstract {
+    function heal(uint256) external virtual;
+    function suck(address, address, uint256) external virtual;
+    function dai(address) external virtual view returns (uint256);
+    function move(address, address, uint256) external virtual;
+}
 
 /**
  @title Gate 1 "Simple Gate"
@@ -40,7 +59,7 @@ import "./common/math.sol";
   * does not check whether vat is live at deployment time
   * vat, and vow addresses cannot be updated after deployment
 */
-contract Gate1 is DSMath {
+contract Gate1 {
     // --- Auth ---
     mapping (address => uint256) public wards;                                       // Addresses with admin authority
     event Rely(address indexed usr);
@@ -70,12 +89,12 @@ contract Gate1 is DSMath {
     modifier toll { require(bud[msg.sender] == 1, "bud/not-authorized"); _; }
 
     /// maker protocol vat
-    address public vat;
+    address public immutable vat;
     /// maker protocol vow
-    address public vow;
+    address public immutable vow;
 
     /// draw limit- total amount that can be drawn from vat.suck
-    uint256 public approvedTotal; // [rad] 
+    uint256 public approvedTotal; // [rad]
 
     /// withdraw condition- timestamp after which backup dai balance withdrawal is allowed
     uint256 public withdrawAfter; // [timestamp]
@@ -88,9 +107,9 @@ contract Gate1 is DSMath {
         vow = vow_; // set vow address
 
         withdrawAfter = block.timestamp; // set withdrawAfter to now
-        // governance should set withdrawAfter to a future timestamp after deployment 
-        // and loading a backup balance in gate to give the integration a guarantee 
-        // that the backup dai balance will not be prematurely withdrawn 
+        // governance should set withdrawAfter to a future timestamp after deployment
+        // and loading a backup balance in gate to give the integration a guarantee
+        // that the backup dai balance will not be prematurely withdrawn
     }
 
     // --- Events ---
@@ -101,9 +120,13 @@ contract Gate1 is DSMath {
 
     // --- UTILS ---
     /// Return dai balance held by the gate contract
-    /// @return amount rad 
+    /// @return amount rad
     function daiBalance() public view returns (uint256) {
         return VatAbstract(vat).dai(address(this));
+    }
+
+    function _max(uint x, uint y) internal pure returns (uint z) {
+        return x <= y ? y : x;
     }
 
     /// Transfer dai balance from gate to destination address
@@ -121,8 +144,8 @@ contract Gate1 is DSMath {
     /// Both draw limit on suck and backup balance are considered
     /// @dev Possible failure of the vat.suck call due to auth issues et cetra is not accounted for
     /// @return amount rad
-    function maxDrawAmount() public view returns (uint256) {
-        return max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
+    function maxDrawAmount() external view returns (uint256) {
+        return _max(approvedTotal, daiBalance()); // only one source can be accessed in a single call
     }
 
     // --- Draw Limits ---
@@ -130,7 +153,7 @@ contract Gate1 is DSMath {
     /// @dev Restricted to authorized governance addresses
     /// @dev Approved total can be updated to both a higher or lower value
     /// @param newTotal_ Updated approved total amount
-    function updateApprovedTotal(uint256 newTotal_) public auth {
+    function updateApprovedTotal(uint256 newTotal_) external auth {
         approvedTotal = newTotal_; // update approved total amount
 
         emit NewApprovedTotal(newTotal_);
@@ -142,20 +165,20 @@ contract Gate1 is DSMath {
     /// @dev Does not revert when vat.suck fails to ensure gate can try alternate draw paths
     /// @dev and determine best course of action, ex: try backup balance
     /// @param amount_ dai amount to draw from a vat.suck() call
-    /// @return status 
+    /// @return status
     function accessSuck(uint256 amount_) internal returns (bool) {
         // ensure approved total to access vat.suck is greater than draw amount requested
         bool drawLimitCheck = (approvedTotal >= amount_);
 
         if(drawLimitCheck) { // check passed
             // decrease approvedTotal by draw amount
-            approvedTotal = subu(approvedTotal, amount_);
+            approvedTotal = approvedTotal - amount_;
 
             // call suck to transfer dai from vat to this gate contract
             try VatAbstract(vat).suck(address(vow), address(this), amount_) {
                 // optional: can call vow.heal(amount_) here to ensure
-                // surplus buffer has sufficient dai balance 
-                
+                // surplus buffer has sufficient dai balance
+
                 // accessSuck success- successful vat.suck execution for requested amount
                 return true;
             } catch {
@@ -180,7 +203,7 @@ contract Gate1 is DSMath {
         bool suckStatus = accessSuck(amount_); // try drawing amount from vat.suck
 
         // amount can still come from backup balance after accessSuck fails
-        
+
         // transfer amount to the input destination address
         transferDai(dst_, amount_);
 
@@ -210,14 +233,14 @@ contract Gate1 is DSMath {
     /// Internal backup balance withdrawal restrictions implementation
     /// Allows or stops authorized governance addresses from withdrawing dai from the backup balance
     /// @return status true when allowed and false when not allowed
-    function withdrawalConditionSatisfied() internal returns (bool) {
+    function withdrawalConditionSatisfied() internal view returns (bool) {
         // governance is allowed to withdraw any amount of the backup balance
         // once past withdrawAfter timestamp
         bool withdrawalAllowed = (block.timestamp >= withdrawAfter);
 
         return withdrawalAllowed;
     }
-    
+
     /// Withdraw backup balance
     /// @dev Restricted to authorized governance addresses
     /// @param dst_ destination address
@@ -233,7 +256,7 @@ contract Gate1 is DSMath {
     /// Can only set withdrawAfter to a higher timestamp
     /// @dev Restricted to authorized governance addresses
     /// @param newWithdrawAfter New timestamp to set
-    function updateWithdrawAfter(uint256 newWithdrawAfter) public auth {
+    function updateWithdrawAfter(uint256 newWithdrawAfter) external auth {
         require(newWithdrawAfter > withdrawAfter, "withdrawAfter/value-lower");
         withdrawAfter = newWithdrawAfter;
 
@@ -242,7 +265,7 @@ contract Gate1 is DSMath {
 
     // --- Vat Forwarders ---
     /// Forward vat.heal() call
-    /// @dev Access to vat.heal() can be used appropriately by an integration 
+    /// @dev Access to vat.heal() can be used appropriately by an integration
     /// @dev when it maintains its own sin balance
     /// @param rad dai amount
     function heal(uint rad) external {
