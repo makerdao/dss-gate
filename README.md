@@ -1,6 +1,6 @@
 # Gate
 
-*Governance tool to limit vat.suck() integration risk*
+* Governance tool to limit vat.suck() integration risk*
 
 ## Designs
 
@@ -19,6 +19,6 @@ Features:
 * Access priority- vat.suck first, backup balance second
 * No hybrid draw at one time from both vat.suck and backup balance
 
-# Development
+## Development
 
-* Requires [Foundry](https://github.com/gakonst/foundry)
+* Works with [Dapptools](https://github.com/dapphub/dapptools) or [Foundry](https://github.com/gakonst/foundry)
