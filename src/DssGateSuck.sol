@@ -15,7 +15,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-pragma solidity ^0.6.12;
+pragma solidity 0.8.11;
 
 interface VatLike {
     function live() external returns (uint256);
@@ -35,19 +35,19 @@ interface JoinLike {
 
  DEPLOYMENT
   * ideally, each gate contract should only be linked to a single integration
-  * authorized integration can then request a dai amount from gate contract with a "draw" call
+  * authorized integration can then request a dai amount from gate contract with a "suck" call
 
  DRAW LIMIT
   * a limit on the amount of dai that can an integration can draw with a vat.suck call
   * simple gate uses an approved total amount, similar to a token approval
   * integrations can access up to this dai amount in total
+  * if they repay the dai they can "refill the approval amount" allowing for future draws.
 
  DAI FORMAT
   * integrates with dai balance on vat, which uses the dsmath rad number type- 45 decimal fixed-point number
 
  MISCELLANEOUS
   * does not execute vow.heal to ensure the dai draw amount from vat.suck is lower than the surplus buffer currently held in vow
-  * does not check whether vat is live at deployment time
   * vat, and vow addresses cannot be updated after deployment
 */
 contract DssGateSuck {
@@ -97,7 +97,7 @@ contract DssGateSuck {
     // amount drawn- amount currently drawn and not put back
     uint256 public fill = 0;
 
-    constructor(address vat_, address vow_) public {
+    constructor(address vat_, address vow_) {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
 
@@ -131,7 +131,7 @@ contract DssGateSuck {
     /// @dev Restricted to approved integration addresses
     /// @param dst who are you sucking to
     /// @param amt dai amount in rad
-    function suck(address dst, uint256 amt) public toll returns (bool) {
+    function suck(address dst, uint256 amt) public toll {
         require(VatLike(vat).live() == 1, "dss-gate/vat-not-live");
 
         fill = _add(fill, amt);
