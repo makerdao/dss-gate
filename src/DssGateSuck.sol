@@ -58,26 +58,24 @@ contract DssGateSuck {
     function rely(address _usr) external auth { wards[_usr] = 1; emit Rely(_usr); }  // Add admin
     function deny(address _usr) external auth { wards[_usr] = 0; emit Deny(_usr); }  // Remove admin
     modifier auth {
-        require(wards[msg.sender] == 1, "gate1/not-authorized");
+        require(wards[msg.sender] == 1, "DssGateSuck/not-authorized");
         _;
     }
 
     // --- Integration Access Control ---
-    mapping (address => uint256) public bud;
-    event Kiss(address a);
-    event Diss(address a);
-    function kiss(address _a) external auth {
-        require(_a != address(0), "bud/no-contract-0");
-        require(bud[_a] == 0, "bud/approved");
-        bud[_a] = 1;
-        emit Kiss(_a);
+    mapping (address => uint256) public can;
+    event Hope(address usr);
+    event Nope(address usr);
+    function hope(address _a) external auth {
+        require(_a != address(0), "DssGateSuck/cannot-hope-nothing");
+        can[_a] = 1;
+        emit Hope(_a);
     }
-    function diss(address _a) external auth {
-        require(bud[_a] == 1, "bud/not-approved");
-        bud[_a] = 0;
-        emit Diss(_a);
+    function nope(address _a) external auth {
+        can[_a] = 0;
+        emit Nope(_a);
     }
-    modifier toll { require(bud[msg.sender] == 1, "bud/not-authorized"); _; }
+    modifier wish { require(can[msg.sender] == 1, "DssGateSuck/bud-not-authorized"); _; }
 
     // --- Math ---
     function _add(uint x, uint y) internal pure returns (uint z) {
@@ -131,7 +129,7 @@ contract DssGateSuck {
     /// @dev Restricted to approved integration addresses
     /// @param dst who are you sucking to
     /// @param amt dai amount in rad
-    function suck(address dst, uint256 amt) public toll {
+    function suck(address dst, uint256 amt) public wish {
         require(VatLike(vat).live() == 1, "dss-gate/vat-not-live");
 
         fill = _add(fill, amt);
