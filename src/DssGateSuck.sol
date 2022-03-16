@@ -85,7 +85,7 @@ contract DssGateSuck {
     /// draw limit- total amount that can be drawn from vat.suck
     uint256 public max; // [rad]
     // amount drawn- amount currently drawn and not put back
-    uint256 public fill = 0;
+    uint256 public fill;
 
     constructor(address vat_, address vow_) {
         wards[msg.sender] = 1;
@@ -114,7 +114,7 @@ contract DssGateSuck {
         if (what == "max") {
             max = data; // update approved total amount
             emit File(what, data);
-        }
+        } else revert("DssGateSuck/file-not-recognized");
     }
 
     /// Suck to destination
@@ -122,10 +122,10 @@ contract DssGateSuck {
     /// @param dst who are you sucking to
     /// @param amt dai amount in rad
     function suck(address dst, uint256 amt) public wish {
-        require(VatLike(vat).live() == 1, "dss-gate/vat-not-live");
+        require(VatLike(vat).live() == 1, "DssGateSuck/vat-not-live");
 
         fill = fill + amt;
-        require(max >= fill, "dss-gate/insufficient-allowance");
+        require(max >= fill, "DssGateSuck/insufficient-allowance");
 
         VatLike(vat).suck(vow, dst, amt);
         emit Draw(dst, amt);
