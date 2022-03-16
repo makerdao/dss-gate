@@ -142,7 +142,10 @@ contract DssGateSuck {
     function give(uint256 amt) external {
         if (fill >= amt) {
             fill = fill - amt;
+        } else {
+            fill = 0;
         }
+
         VatLike(vat).move(msg.sender, vow, amt);
     }
 
@@ -154,7 +157,10 @@ contract DssGateSuck {
     function recover(address join, uint256 amt) external {
         if (fill >= amt) {
             fill = fill - amt * 10 ** 27;
+        } else {
+            fill = 0;
         }
+
         JoinLike(join).join(vow, amt);
     }
 }
