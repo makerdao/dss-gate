@@ -23,7 +23,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-pragma solidity ^0.6.12;
+pragma solidity 0.8.11;
 
 interface GateLike {
     function file(bytes32, uint256) external;
@@ -83,7 +83,7 @@ contract DssGateMomTimeReset {
     /// withdraw condition- timestamp after which anyone can increase the max dai of a gate
     uint256 public ttl; // [timestamp]
 
-    constructor() public {
+    constructor() {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -111,13 +111,13 @@ contract DssGateMomTimeReset {
     // --- Exec ---
     /// Updates the gate's authorization to pull funds
     /// reverts if not enough time has passed
-    function exec(address who) external returns (bool) {
+    function exec(address who) external {
         require(ttl > 0, "DssGateMomTimeReset/not-active");
         require(block.timestamp >= ttl, "DssGateMomTimeReset/too-soon");
 
         ttl = 0; // Reset ttl so this can't be called multiple times
         GateLike(who).file("max", bit);
 
-        ResetMax(who, bit);
+        emit ResetMax(who, bit);
     }
 }

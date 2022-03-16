@@ -77,14 +77,6 @@ contract DssGateSuck {
     }
     modifier wish { require(can[msg.sender] == 1, "DssGateSuck/bud-not-authorized"); _; }
 
-    // --- Math ---
-    function _add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x);
-    }
-    function _sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x);
-    }
-
     /// maker protocol vat
     address public immutable vat;
     /// maker protocol vow
@@ -132,7 +124,7 @@ contract DssGateSuck {
     function suck(address dst, uint256 amt) public wish {
         require(VatLike(vat).live() == 1, "dss-gate/vat-not-live");
 
-        fill = _add(fill, amt);
+        fill = fill + amt;
         require(max >= fill, "dss-gate/insufficient-allowance");
 
         VatLike(vat).suck(vow, dst, amt);
@@ -147,9 +139,9 @@ contract DssGateSuck {
     }
 
     /// Repay dai (reverse suck)
-    function blow(uint256 amt) external {
+    function give(uint256 amt) external {
         if (fill >= amt) {
-            fill = _sub(fill, amt);
+            fill = fill - amt;
         }
         VatLike(vat).move(msg.sender, vow, amt);
     }
@@ -161,7 +153,7 @@ contract DssGateSuck {
     /// @param amt the amount of ERC dai to join [wad]
     function recover(address join, uint256 amt) external {
         if (fill >= amt) {
-            fill = _sub(fill, amt);
+            fill = fill - amt;
         }
         JoinLike(join).join(address(this), amt);
         VatLike(vat).move(address(this), vow, amt);
