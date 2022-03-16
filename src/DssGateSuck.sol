@@ -153,9 +153,8 @@ contract DssGateSuck {
     /// @param amt the amount of ERC dai to join [wad]
     function recover(address join, uint256 amt) external {
         if (fill >= amt) {
-            fill = fill - amt;
+            fill = fill - amt * 10 ** 27;
         }
-        JoinLike(join).join(address(this), amt);
-        VatLike(vat).move(address(this), vow, amt);
+        JoinLike(join).join(vow, amt);
     }
 }
