@@ -2,8 +2,4 @@
 /cache
 .DS_Store
 /node_modules
-<<<<<<< HEAD
-/.vscode
-=======
 .vscode
->>>>>>> don't commit vscode settings
